@@ -1,0 +1,338 @@
+import 'package:flutter/material.dart';
+import '../constants/colors.dart';
+import '../models/file_item.dart';
+import '../models/file_type.dart';
+import '../models/storage_category.dart';
+
+/// Categories with mock data
+final List<StorageCategory> kCategories = [
+  StorageCategory(
+    label: 'Images',
+    icon: Icons.image_rounded,
+    color: kPink,
+    size: '4.2 GB',
+    count: '1,847 files',
+    files: [
+      FileItem(
+        name: 'vacation_2024.jpg',
+        type: FileType.image,
+        size: '3.4 MB',
+        modified: 'Today',
+        accentColor: kPink,
+      ),
+      FileItem(
+        name: 'family_photo.png',
+        type: FileType.image,
+        size: '5.1 MB',
+        modified: 'Yesterday',
+        accentColor: kPink,
+      ),
+      FileItem(
+        name: 'screenshot_001.png',
+        type: FileType.image,
+        size: '812 KB',
+        modified: 'Mon',
+        accentColor: kPink,
+      ),
+      FileItem(
+        name: 'wallpaper_hd.jpg',
+        type: FileType.image,
+        size: '2.2 MB',
+        modified: 'Last week',
+        accentColor: kPink,
+      ),
+      FileItem(
+        name: 'profile_pic.jpg',
+        type: FileType.image,
+        size: '1.1 MB',
+        modified: 'Aug 12',
+        accentColor: kPink,
+      ),
+    ],
+  ),
+  StorageCategory(
+    label: 'Videos',
+    icon: Icons.play_circle_rounded,
+    color: kBlue,
+    size: '18.7 GB',
+    count: '234 files',
+    files: [
+      FileItem(
+        name: 'holiday_reel.mp4',
+        type: FileType.video,
+        size: '1.3 GB',
+        modified: 'Today',
+        accentColor: kBlue,
+      ),
+      FileItem(
+        name: 'tutorial_flutter.mkv',
+        type: FileType.video,
+        size: '420 MB',
+        modified: '3 days ago',
+        accentColor: kBlue,
+      ),
+      FileItem(
+        name: 'clip_edit_v2.mp4',
+        type: FileType.video,
+        size: '88 MB',
+        modified: 'Last week',
+        accentColor: kBlue,
+      ),
+      FileItem(
+        name: 'birthday_party.mov',
+        type: FileType.video,
+        size: '2.1 GB',
+        modified: 'Aug 5',
+        accentColor: kBlue,
+      ),
+    ],
+  ),
+  StorageCategory(
+    label: 'Audio',
+    icon: Icons.music_note_rounded,
+    color: kPurple,
+    size: '2.1 GB',
+    count: '512 files',
+    files: [
+      FileItem(
+        name: 'playlist_chill.mp3',
+        type: FileType.audio,
+        size: '6.4 MB',
+        modified: 'Yesterday',
+        accentColor: kPurple,
+      ),
+      FileItem(
+        name: 'podcast_ep42.m4a',
+        type: FileType.audio,
+        size: '44 MB',
+        modified: 'Mon',
+        accentColor: kPurple,
+      ),
+      FileItem(
+        name: 'voice_memo.aac',
+        type: FileType.audio,
+        size: '2.1 MB',
+        modified: 'Today',
+        accentColor: kPurple,
+      ),
+    ],
+  ),
+  StorageCategory(
+    label: 'Documents',
+    icon: Icons.description_rounded,
+    color: kAmber,
+    size: '890 MB',
+    count: '318 files',
+    files: [
+      FileItem(
+        name: 'resume_2024.pdf',
+        type: FileType.document,
+        size: '1.2 MB',
+        modified: 'Today',
+        accentColor: kAmber,
+      ),
+      FileItem(
+        name: 'project_plan.docx',
+        type: FileType.document,
+        size: '340 KB',
+        modified: '2 days ago',
+        accentColor: kAmber,
+      ),
+      FileItem(
+        name: 'budget_q3.xlsx',
+        type: FileType.document,
+        size: '88 KB',
+        modified: 'Last week',
+        accentColor: kAmber,
+      ),
+      FileItem(
+        name: 'notes_meeting.txt',
+        type: FileType.document,
+        size: '12 KB',
+        modified: 'Today',
+        accentColor: kAmber,
+      ),
+      FileItem(
+        name: 'contract_v3.pdf',
+        type: FileType.document,
+        size: '2.8 MB',
+        modified: 'Aug 10',
+        accentColor: kAmber,
+      ),
+    ],
+  ),
+  StorageCategory(
+    label: 'Downloads',
+    icon: Icons.download_done_rounded,
+    color: kTeal,
+    size: '3.4 GB',
+    count: '156 files',
+    files: [
+      FileItem(
+        name: 'app_update.apk',
+        type: FileType.apk,
+        size: '87 MB',
+        modified: 'Today',
+        accentColor: kTeal,
+      ),
+      FileItem(
+        name: 'archive_backup.zip',
+        type: FileType.archive,
+        size: '1.2 GB',
+        modified: 'Yesterday',
+        accentColor: kTeal,
+      ),
+      FileItem(
+        name: 'fonts_pack.zip',
+        type: FileType.archive,
+        size: '44 MB',
+        modified: 'Mon',
+        accentColor: kTeal,
+      ),
+    ],
+  ),
+  StorageCategory(
+    label: 'Apps',
+    icon: Icons.widgets_rounded,
+    color: kOrange,
+    size: '6.8 GB',
+    count: '48 installed',
+    files: [
+      FileItem(
+        name: 'game_rpg.apk',
+        type: FileType.apk,
+        size: '1.4 GB',
+        modified: 'Last week',
+        accentColor: kOrange,
+      ),
+      FileItem(
+        name: 'social_app.apk',
+        type: FileType.apk,
+        size: '120 MB',
+        modified: '2 weeks ago',
+        accentColor: kOrange,
+      ),
+      FileItem(
+        name: 'utility_tool.apk',
+        type: FileType.apk,
+        size: '34 MB',
+        modified: 'Aug 1',
+        accentColor: kOrange,
+      ),
+    ],
+  ),
+];
+
+/// Recent files list
+final List<FileItem> kRecentFiles = [
+  FileItem(
+    name: 'resume_2024.pdf',
+    type: FileType.document,
+    size: '1.2 MB',
+    modified: '2 min ago',
+    accentColor: kAmber,
+  ),
+  FileItem(
+    name: 'vacation_2024.jpg',
+    type: FileType.image,
+    size: '3.4 MB',
+    modified: '14 min ago',
+    accentColor: kPink,
+  ),
+  FileItem(
+    name: 'holiday_reel.mp4',
+    type: FileType.video,
+    size: '1.3 GB',
+    modified: '1 hr ago',
+    accentColor: kBlue,
+  ),
+  FileItem(
+    name: 'voice_memo.aac',
+    type: FileType.audio,
+    size: '2.1 MB',
+    modified: '3 hrs ago',
+    accentColor: kPurple,
+  ),
+  FileItem(
+    name: 'budget_q3.xlsx',
+    type: FileType.document,
+    size: '88 KB',
+    modified: 'Yesterday',
+    accentColor: kAmber,
+  ),
+  FileItem(
+    name: 'app_update.apk',
+    type: FileType.apk,
+    size: '87 MB',
+    modified: 'Yesterday',
+    accentColor: kTeal,
+  ),
+];
+
+/// Root folders for Files tab
+final List<FileItem> kRootFolders = [
+  FileItem(
+    name: 'DCIM',
+    type: FileType.folder,
+    path: '/storage/emulated/0/DCIM',
+    itemCount: 12,
+    modified: 'Today',
+    accentColor: kPink,
+  ),
+  FileItem(
+    name: 'Documents',
+    type: FileType.folder,
+    path: '/storage/emulated/0/Documents',
+    itemCount: 8,
+    modified: '2 days ago',
+    accentColor: kAmber,
+  ),
+  FileItem(
+    name: 'Downloads',
+    type: FileType.folder,
+    path: '/storage/emulated/0/Download',
+    itemCount: 31,
+    modified: 'Yesterday',
+    accentColor: kTeal,
+  ),
+  FileItem(
+    name: 'Music',
+    type: FileType.folder,
+    path: '/storage/emulated/0/Music',
+    itemCount: 5,
+    modified: 'Mon',
+    accentColor: kPurple,
+  ),
+  FileItem(
+    name: 'Videos',
+    type: FileType.folder,
+    path: '/storage/emulated/0/Movies',
+    itemCount: 9,
+    modified: 'Last week',
+    accentColor: kBlue,
+  ),
+  FileItem(
+    name: 'WhatsApp',
+    type: FileType.folder,
+    path: '/storage/emulated/0/WhatsApp/Media',
+    itemCount: 47,
+    modified: 'Today',
+    accentColor: kGreen,
+  ),
+  FileItem(
+    name: 'Screenshots',
+    type: FileType.folder,
+    path: '/storage/emulated/0/Pictures/Screenshots',
+    itemCount: 203,
+    modified: 'Today',
+    accentColor: kOrange,
+  ),
+  FileItem(
+    name: 'Android',
+    type: FileType.folder,
+    path: '/storage/emulated/0/Android',
+    itemCount: 3,
+    modified: 'Last month',
+    accentColor: kMuted,
+  ),
+];

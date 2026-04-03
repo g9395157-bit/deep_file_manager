@@ -1,0 +1,35 @@
+name: deep_file_manager
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  permission_handler: ^12.0.1
+  open_filex: ^4.7.0
+  shared_preferences: ^2.2.0
+  path_provider: ^2.0.15
+  path: ^1.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/images/
+    - assets/icons/
+    - assets/fonts/
+  fonts:
+    - family: Zain
+      fonts:
+        - asset: assets/fonts/Zain-Regular.ttf
+  
