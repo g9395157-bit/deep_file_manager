@@ -3,6 +3,7 @@ import 'package:path/path.dart' as p;
 import '../constants/colors.dart';
 import '../models/file_item.dart';
 import '../widgets/buttons/icon_button.dart';
+import '../widgets/dialogs/confirmation_card.dart';
 import '../widgets/tiles/file_grid_card.dart';
 import '../widgets/tiles/file_row.dart';
 import '../utils/file_service.dart';
@@ -338,19 +339,12 @@ class _FileListScreenState extends State<FileListScreen> {
                 Navigator.pop(ctx);
                 final ok = await showDialog<bool>(
                   context: context,
-                  builder: (dCtx) => AlertDialog(
-                    title: const Text('Delete'),
-                    content: Text('Delete "${item.name}"?'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(dCtx, false),
-                        child: const Text('Cancel'),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(dCtx, true),
-                        child: const Text('Delete'),
-                      ),
-                    ],
+                  builder: (dCtx) => ConfirmationCard(
+                    title: 'Delete',
+                    message: 'Delete "${item.name}"?\n\nThis cannot be undone.',
+                    confirmText: 'Delete',
+                    type: ConfirmationType.destructive,
+                    icon: Icons.delete_outline_rounded,
                   ),
                 );
                 if (ok != true) return;

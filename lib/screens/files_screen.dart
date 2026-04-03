@@ -9,6 +9,7 @@ import '../screens/file_viewer_screen.dart';
 import '../utils/file_service.dart';
 import '../utils/recent_service.dart';
 import '../widgets/buttons/icon_button.dart';
+import '../widgets/dialogs/confirmation_card.dart';
 import '../widgets/tiles/file_row.dart';
 import '../widgets/tiles/folder_grid_tile.dart';
 
@@ -335,59 +336,34 @@ class _FilesScreenState extends State<FilesScreen> {
     final ctrl = TextEditingController(text: item.name);
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kCard,
-        title: Text('Rename', style: TextStyle(color: kBright)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: TextStyle(color: kBright),
-          decoration: InputDecoration(
-            hintText: 'New name',
-            hintStyle: TextStyle(color: kMuted),
-            border: OutlineInputBorder(borderSide: BorderSide(color: kBorder)),
-            enabledBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: kBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderSide: BorderSide(color: kAmber),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: kMuted)),
-          ),
-          TextButton(
-            onPressed: () async {
-              final newName = ctrl.text.trim();
-              if (newName.isEmpty || newName == item.name) {
-                Navigator.pop(ctx);
-                return;
-              }
-              final dir = p.dirname(item.path);
-              final newPath = '$dir/$newName';
-              try {
-                await FileService.rename(item.path, newPath);
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  _loadDirectory(_currentPath);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Renamed successfully')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: Text('Rename', style: TextStyle(color: kAmber)),
-          ),
-        ],
+      builder: (ctx) => _RenameDialog(
+        item: item,
+        controller: ctrl,
+        onConfirm: () async {
+          final newName = ctrl.text.trim();
+          if (newName.isEmpty || newName == item.name) {
+            Navigator.pop(ctx);
+            return;
+          }
+          final dir = p.dirname(item.path);
+          final newPath = '$dir/$newName';
+          try {
+            await FileService.rename(item.path, newPath);
+            if (mounted) {
+              Navigator.pop(ctx);
+              _loadDirectory(_currentPath);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Renamed successfully')),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          }
+        },
       ),
     );
   }
@@ -395,40 +371,29 @@ class _FilesScreenState extends State<FilesScreen> {
   void _showDeleteDialog(FileItem item) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kCard,
-        title: Text('Delete', style: TextStyle(color: kBright)),
-        content: Text(
-          'Delete "${item.name}"? This cannot be undone.',
-          style: TextStyle(color: kMuted, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: kMuted)),
-          ),
-          TextButton(
-            onPressed: () async {
-              try {
-                await FileService.deletePath(item.path);
-                if (mounted) {
-                  Navigator.pop(ctx);
-                  _loadDirectory(_currentPath);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Deleted successfully')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(SnackBar(content: Text('Error: $e')));
-                }
-              }
-            },
-            child: Text('Delete', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (ctx) => ConfirmationCard(
+        title: 'Delete',
+        message: 'Delete "${item.name}"?\n\nThis cannot be undone.',
+        confirmText: 'Delete',
+        type: ConfirmationType.destructive,
+        icon: Icons.delete_outline_rounded,
+        onConfirm: () async {
+          try {
+            await FileService.deletePath(item.path);
+            if (mounted) {
+              _loadDirectory(_currentPath);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deleted successfully')),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Error: $e')));
+            }
+          }
+        },
       ),
     );
   }
@@ -867,6 +832,204 @@ class _ContextSheet extends StatelessWidget {
       leading: Icon(icon, color: c, size: 20),
       title: Text(label, style: TextStyle(color: c, fontSize: 14)),
       onTap: onTap,
+    );
+  }
+}
+
+/// Rename dialog with custom styling matching the app design
+class _RenameDialog extends StatefulWidget {
+  final FileItem item;
+  final TextEditingController controller;
+  final VoidCallback onConfirm;
+
+  const _RenameDialog({
+    required this.item,
+    required this.controller,
+    required this.onConfirm,
+  });
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _focusNode.requestFocus();
+      // Select all text except extension
+      final name = widget.controller.text;
+      final lastDot = name.lastIndexOf('.');
+      if (lastDot > 0) {
+        widget.controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: lastDot,
+        );
+      } else {
+        widget.controller.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: widget.controller.text.length,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24),
+      child: SingleChildScrollView(
+        child: Container(
+          decoration: BoxDecoration(
+            color: kCard,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: kBorder, width: 1),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon
+              Padding(
+                padding: const EdgeInsets.only(top: 24),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: kAmber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.edit_rounded,
+                    color: kAmber,
+                    size: 28,
+                  ),
+                ),
+              ),
+
+              // Title
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                child: Text(
+                  'Rename',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: kBright,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              // Input field
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                child: TextField(
+                  controller: widget.controller,
+                  focusNode: _focusNode,
+                  autofocus: true,
+                  style: TextStyle(color: kBright, fontSize: 16),
+                  decoration: InputDecoration(
+                    hintText: 'New name',
+                    hintStyle: TextStyle(color: kMuted),
+                    prefixIcon: Icon(Icons.edit_rounded, color: kMuted),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: kBorder),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: kBorder),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: kAmber),
+                    ),
+                    filled: true,
+                    fillColor: kSurface,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onSubmitted: (_) => widget.onConfirm(),
+                ),
+              ),
+
+              // Divider
+              Divider(
+                height: 1,
+                color: kBorder,
+                indent: 0,
+                endIndent: 0,
+              ),
+
+              // Actions
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: kMuted,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          widget.onConfirm();
+                          Navigator.of(context).pop(true);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: kAmber,
+                          foregroundColor: kBg,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: const Text(
+                          'Rename',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import '../screens/home_screen.dart';
 import '../screens/files_screen.dart';
 import '../screens/recents_screen.dart';
 import '../screens/storage_screen.dart';
+import '../widgets/dialogs/confirmation_card.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -76,22 +77,12 @@ class _MainShellState extends State<MainShell> {
     final ok = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Storage permission required'),
-        content: const Text(
-          'Deep File Manager needs storage permissions to list and manage '
-          'files on your device.\n\nWe will request permission next.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('OK'),
-          ),
-        ],
+      builder: (ctx) => ConfirmationCard(
+        title: 'Storage Permission Required',
+        message: 'Deep File Manager needs storage permissions to list and manage files on your device.\n\nWe will request permission next.',
+        confirmText: 'OK',
+        type: ConfirmationType.info,
+        icon: Icons.storage_rounded,
       ),
     );
 
@@ -100,26 +91,20 @@ class _MainShellState extends State<MainShell> {
     final granted = await PermissionService.requestStoragePermission();
     if (!mounted) return;
     if (!granted) {
-      final open = await showDialog<bool>(
+      await showDialog<bool>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Permission denied'),
-          content: const Text(
-            'Permissions were not granted. You can enable them in app settings.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Close'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Open settings'),
-            ),
-          ],
+        builder: (ctx) => ConfirmationCard(
+          title: 'Permission Denied',
+          message: 'Permissions were not granted. You can enable them in app settings.',
+          confirmText: 'Open Settings',
+          cancelText: 'Close',
+          type: ConfirmationType.caution,
+          icon: Icons.lock_outline_rounded,
+          onConfirm: () async {
+            await PermissionService.openAppSettings();
+          },
         ),
       );
-      if (open == true) await PermissionService.openAppSettings();
     }
   }
 
@@ -129,10 +114,24 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kBg,
-      // PageView handles horizontal swipe natively and correctly resolves
-      // gesture conflicts with nested horizontal scrollables (sort chips, etc.)
+    return WillPopScope(
+      onWillPop: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => ConfirmationCard(
+            title: 'Exit App',
+            message: 'Are you sure you want to close Deep File Manager?',
+            confirmText: 'Exit',
+            type: ConfirmationType.caution,
+            icon: Icons.logout_rounded,
+          ),
+        );
+        return confirmed ?? false;
+      },
+      child: Scaffold(
+        backgroundColor: kBg,
+        // PageView handles horizontal swipe natively and correctly resolves
+        // gesture conflicts with nested horizontal scrollables (sort chips, etc.)
       body: PageView(
         controller: _pageController,
         onPageChanged: _onPageChanged,
@@ -143,6 +142,7 @@ class _MainShellState extends State<MainShell> {
         children: _screens,
       ),
       bottomNavigationBar: _buildNavBar(),
+      ),
     );
   }
 

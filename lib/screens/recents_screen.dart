@@ -10,6 +10,7 @@ import '../screens/file_viewer_screen.dart';
 import '../utils/file_service.dart';
 import '../utils/recent_service.dart';
 import '../widgets/buttons/icon_button.dart';
+import '../widgets/dialogs/confirmation_card.dart';
 import '../widgets/tiles/file_row.dart';
 
 /// Fixed Recents screen:
@@ -313,32 +314,21 @@ class _RecentsScreenState extends State<RecentsScreen> {
   void _confirmClear() {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kCard,
-        title: Text('Clear History', style: TextStyle(color: kBright)),
-        content: Text(
-          'Remove all recent files from history?',
-          style: TextStyle(color: kMuted, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Cancel', style: TextStyle(color: kMuted)),
-          ),
-          TextButton(
-            onPressed: () async {
-              await RecentService.clearRecents();
-              if (mounted) {
-                Navigator.pop(ctx);
-                setState(() {
-                  _allItems = [];
-                  _filteredItems = [];
-                });
-              }
-            },
-            child: Text('Clear', style: TextStyle(color: Colors.red)),
-          ),
-        ],
+      builder: (ctx) => ConfirmationCard(
+        title: 'Clear History',
+        message: 'Remove all recent files from history?\n\nThis cannot be undone.',
+        confirmText: 'Clear',
+        type: ConfirmationType.destructive,
+        icon: Icons.history_toggle_off_rounded,
+        onConfirm: () async {
+          await RecentService.clearRecents();
+          if (mounted) {
+            setState(() {
+              _allItems = [];
+              _filteredItems = [];
+            });
+          }
+        },
       ),
     );
   }
