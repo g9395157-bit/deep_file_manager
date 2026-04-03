@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:async';
-// Removed unused foundation import
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -10,7 +9,10 @@ import '../models/file_type.dart';
 import 'permission_service.dart';
 
 class FileService {
-  /// Returns a sensible root directory for the current platform.
+  // ──────────────────────────────────────────────────────────────────────────
+  // Root directory
+  // ──────────────────────────────────────────────────────────────────────────
+
   static Future<Directory> getRootDirectory() async {
     if (Platform.isAndroid) {
       return Directory('/storage/emulated/0');
@@ -21,6 +23,25 @@ class FileService {
     }
     return Directory.systemTemp;
   }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Stat — returns null when the file does not exist or is inaccessible.
+  // Used by home_screen to hydrate recent file metadata.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static Future<FileStat?> statFile(String path) async {
+    try {
+      final entity = File(path);
+      if (!await entity.exists()) return null;
+      return await entity.stat();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Formatting
+  // ──────────────────────────────────────────────────────────────────────────
 
   static String formatBytes(int bytes) {
     if (bytes <= 0) return '0 B';
@@ -35,14 +56,18 @@ class FileService {
     return '$fixed ${suffixes[i]}';
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // File type detection
+  // ──────────────────────────────────────────────────────────────────────────
+
   static FileType fileTypeFromPath(String path, {bool isDir = false}) {
     if (isDir) return FileType.folder;
     final ext = p.extension(path).toLowerCase().replaceAll('.', '');
     if (ext.isEmpty) return FileType.other;
-    final imgs = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'];
-    final vids = ['mp4', 'mkv', 'mov', 'avi', 'webm'];
-    final auds = ['mp3', 'wav', 'm4a', 'aac'];
-    final docs = [
+    const imgs = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'heic'];
+    const vids = ['mp4', 'mkv', 'mov', 'avi', 'webm'];
+    const auds = ['mp3', 'wav', 'm4a', 'aac'];
+    const docs = [
       'pdf',
       'doc',
       'docx',
@@ -54,7 +79,7 @@ class FileService {
       'md',
       'rtf',
     ];
-    final arch = ['zip', 'rar', '7z', 'tar', 'gz'];
+    const arch = ['zip', 'rar', '7z', 'tar', 'gz'];
     if (imgs.contains(ext)) return FileType.image;
     if (vids.contains(ext)) return FileType.video;
     if (auds.contains(ext)) return FileType.audio;
@@ -64,11 +89,17 @@ class FileService {
     return FileType.other;
   }
 
-  /// List files and folders at [path] and return them as `FileItem`s.
-  /// Throws when storage permission is required but denied.
+  // ──────────────────────────────────────────────────────────────────────────
+  // List files in a directory (one level only — callers navigate the tree)
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Lists files and folders at [path].
+  ///
+  /// Sorting preference is folders-first / alpha; callers that want a
+  /// different sort order can re-sort the returned list in-memory.
   static Future<List<FileItem>> listFiles(String path) async {
-    final needPerm = await PermissionService.needStoragePermission();
-    if (needPerm) {
+    // Permission check (uses cache — almost free after first call)
+    if (await PermissionService.needStoragePermission()) {
       final granted = await PermissionService.requestStoragePermission();
       if (!granted) throw Exception('Storage permission denied');
     }
@@ -78,30 +109,36 @@ class FileService {
 
     final entities = await dir.list().toList();
 
+    // Folders first, then alphabetical
     entities.sort((a, b) {
-      final aIsDir = a is Directory;
-      final bIsDir = b is Directory;
-      if (aIsDir && !bIsDir) return -1;
-      if (!aIsDir && bIsDir) return 1;
+      final aDir = a is Directory;
+      final bDir = b is Directory;
+      if (aDir != bDir) return aDir ? -1 : 1;
       return a.path.toLowerCase().compareTo(b.path.toLowerCase());
     });
 
     final results = <FileItem>[];
     for (final e in entities) {
+      // Skip hidden files/folders (names starting with '.')
+      final name = p.basename(e.path);
+      if (name.startsWith('.')) continue;
+
       try {
         final stat = await e.stat();
-        final name = p.basename(e.path);
         final isDir = e is Directory;
         final type = fileTypeFromPath(e.path, isDir: isDir);
         final sizeText = isDir ? '' : formatBytes(stat.size);
         final modified = stat.modified.toLocal().toString().split(' ').first;
+
         int itemCount = 0;
         if (isDir) {
+          // Count direct children without recursing (fast)
           try {
-            itemCount = await (e as Directory).list().length;
-          } catch (_) {
-            itemCount = 0;
-          }
+            itemCount = await (e as Directory)
+                .list()
+                .where((child) => !p.basename(child.path).startsWith('.'))
+                .length;
+          } catch (_) {}
         }
 
         results.add(
@@ -117,11 +154,53 @@ class FileService {
           ),
         );
       } catch (_) {
-        // ignore
+        // Skip files/folders we cannot stat (permissions, etc.)
       }
     }
 
     return results;
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // File operations
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static Future<void> deletePath(String path) async {
+    if (await PermissionService.needStoragePermission()) {
+      final granted = await PermissionService.requestStoragePermission();
+      if (!granted) throw Exception('Storage permission denied');
+    }
+    final type = FileSystemEntity.typeSync(path);
+    if (type == FileSystemEntityType.notFound) return;
+    if (type == FileSystemEntityType.directory) {
+      await Directory(path).delete(recursive: true);
+    } else {
+      await File(path).delete();
+    }
+  }
+
+  static Future<void> rename(String from, String to) async {
+    final f = File(from);
+    if (await f.exists()) {
+      await f.rename(to);
+      return;
+    }
+    final d = Directory(from);
+    if (await d.exists()) await d.rename(to);
+  }
+
+  static Future<void> openFile(String path) async {
+    await OpenFilex.open(path);
+  }
+
+  static Future<String?> readTextFile(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return null;
+      return await file.readAsString();
+    } catch (_) {
+      return null;
+    }
   }
 
   static Future<int> getDirectorySize(Directory dir) async {
@@ -136,46 +215,5 @@ class FileService {
       }
     } catch (_) {}
     return total;
-  }
-
-  static Future<String?> readTextFile(String path) async {
-    final file = File(path);
-    if (!await file.exists()) return null;
-    try {
-      return await file.readAsString();
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static Future<void> deletePath(String path) async {
-    final needPerm = await PermissionService.needStoragePermission();
-    if (needPerm) {
-      final granted = await PermissionService.requestStoragePermission();
-      if (!granted) throw Exception('Storage permission denied');
-    }
-    final ent = FileSystemEntity.typeSync(path);
-    if (ent == FileSystemEntityType.notFound) return;
-    if (ent == FileSystemEntityType.directory) {
-      await Directory(path).delete(recursive: true);
-    } else {
-      await File(path).delete();
-    }
-  }
-
-  static Future<void> rename(String from, String to) async {
-    final f = File(from);
-    if (await f.exists()) {
-      await f.rename(to);
-      return;
-    }
-    final d = Directory(from);
-    if (await d.exists()) {
-      await d.rename(to);
-    }
-  }
-
-  static Future<void> openFile(String path) async {
-    await OpenFilex.open(path);
   }
 }

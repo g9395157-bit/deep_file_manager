@@ -3,12 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 import '../constants/gradients.dart';
-import '../constants/mock_data.dart';
 import '../app/main_shell.dart';
-import '../models/file_type.dart';
-import '../utils/file_service.dart';
-import '../utils/storage_search_service.dart';
+import '../utils/permission_service.dart';
 
+/// Fixed splash screen:
+/// - Animations start on the very first frame (no delay before bg animation)
+/// - Only does a lightweight permission request in the background
+/// - No heavy filesystem scanning — categories load lazily on the home screen
+/// - Navigates after 2.4 s or when permission check completes, whichever is later
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
@@ -27,19 +29,26 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _textFade;
   late Animation<Offset> _textSlide;
 
-  bool _isLoading = true;
+  // Minimum visible duration for the splash (ms)
+  static const int _minSplashMs = 2400;
+
+  bool _permCheckDone = false;
+  bool _minTimePassed = false;
 
   @override
   void initState() {
     super.initState();
-    _preloadData();
     _setupAnimations();
+    _doLightweightInit();
   }
 
+  // ──────────────────────────────────────────────────────────────────────────
+  // Animations — start immediately, no blocking delays
+  // ──────────────────────────────────────────────────────────────────────────
   void _setupAnimations() {
     _bgCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 900),
     );
     _iconCtrl = AnimationController(
       vsync: this,
@@ -50,79 +59,55 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 600),
     );
 
-    _bgScale = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _bgCtrl, curve: Curves.easeOutExpo));
-    _iconScale = Tween<double>(
-      begin: 0.4,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _iconCtrl, curve: Curves.elasticOut));
-    _iconFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _iconCtrl, curve: Curves.easeOut));
-    _textFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOut));
+    _bgScale = Tween<double>(begin: 0, end: 1).animate(
+        CurvedAnimation(parent: _bgCtrl, curve: Curves.easeOutExpo));
+    _iconScale = Tween<double>(begin: 0.4, end: 1).animate(
+        CurvedAnimation(parent: _iconCtrl, curve: Curves.elasticOut));
+    _iconFade = Tween<double>(begin: 0, end: 1).animate(
+        CurvedAnimation(parent: _iconCtrl, curve: Curves.easeOut));
+    _textFade = Tween<double>(begin: 0, end: 1).animate(
+        CurvedAnimation(parent: _textCtrl, curve: Curves.easeOut));
     _textSlide = Tween<Offset>(
       begin: const Offset(0, 0.4),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _textCtrl, curve: Curves.easeOutCubic));
 
-    // Sequence
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) _bgCtrl.forward();
-    });
-    Future.delayed(const Duration(milliseconds: 600), () {
+    // Staggered start — bg fires immediately, rest follow
+    _bgCtrl.forward();
+
+    Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted) _iconCtrl.forward();
     });
-    Future.delayed(const Duration(milliseconds: 1000), () {
+
+    Future.delayed(const Duration(milliseconds: 750), () {
       if (mounted) _textCtrl.forward();
     });
 
-    // Proceed after animations finish or when data is loaded
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      _proceedToMain();
+    // Minimum display timer
+    Future.delayed(const Duration(milliseconds: _minSplashMs), () {
+      _minTimePassed = true;
+      _maybeNavigate();
     });
   }
 
-  Future<void> _preloadData() async {
+  // ──────────────────────────────────────────────────────────────────────────
+  // Lightweight init: just request storage permission — no filesystem scan
+  // ──────────────────────────────────────────────────────────────────────────
+  Future<void> _doLightweightInit() async {
     try {
-      final root = await FileService.getRootDirectory();
-
-      // Pre-compute category data
-      for (final category in kCategories) {
-        final types = _getFileTypesForCategory(category.label);
-        await StorageSearchService.searchFilesByType(
-          root.path,
-          types,
-          maxDepth: 15,
-        );
-      }
-
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      // Silently continue even if preload fails
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      await PermissionService.requestStoragePermission();
+    } catch (_) {
+      // Continue even if permission is denied — Files screen handles it
+    } finally {
+      _permCheckDone = true;
+      _maybeNavigate();
     }
   }
 
-  Set<FileType> _getFileTypesForCategory(String label) {
-    return switch (label) {
-      'Images' => {FileType.image},
-      'Videos' => {FileType.video},
-      'Audio' => {FileType.audio},
-      'Documents' => {FileType.document},
-      'Downloads' => {FileType.apk, FileType.archive, FileType.document},
-      'Apps' => {FileType.apk},
-      _ => {FileType.other},
-    };
+  void _maybeNavigate() {
+    if (_permCheckDone && _minTimePassed) {
+      _proceedToMain();
+    }
   }
 
   void _proceedToMain() {
@@ -157,7 +142,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: Stack(
         alignment: Alignment.center,
         children: [
-          // Radial glow behind icon — scales to screen size
+          // Radial glow
           AnimatedBuilder(
             animation: _bgScale,
             builder: (_, __) => Transform.scale(
@@ -178,11 +163,12 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
           ),
+
           Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Icon
+                // App icon
                 ScaleTransition(
                   scale: _iconScale,
                   child: FadeTransition(
@@ -215,8 +201,10 @@ class _SplashScreenState extends State<SplashScreen>
                     ),
                   ),
                 ),
+
                 const SizedBox(height: 36),
-                // Text
+
+                // App name
                 FadeTransition(
                   opacity: _textFade,
                   child: SlideTransition(
@@ -224,7 +212,8 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       children: [
                         ShaderMask(
-                          shaderCallback: (b) => kEmberGradient.createShader(b),
+                          shaderCallback: (b) =>
+                              kEmberGradient.createShader(b),
                           child: const Text(
                             'DEEP FILE',
                             style: TextStyle(
@@ -251,38 +240,20 @@ class _SplashScreenState extends State<SplashScreen>
               ],
             ),
           ),
-          // Bottom version tag + loading indicator
+
+          // Version tag at bottom
           Positioned(
             bottom: 48,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isLoading)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          kAmber.withAlpha((0.6 * 255).round()),
-                        ),
-                      ),
-                    ),
-                  ),
-                FadeTransition(
-                  opacity: _textFade,
-                  child: Text(
-                    'v1.0.0',
-                    style: TextStyle(
-                      color: kMuted.withAlpha((0.5 * 255).round()),
-                      fontSize: 12,
-                      letterSpacing: 2,
-                    ),
-                  ),
+            child: FadeTransition(
+              opacity: _textFade,
+              child: Text(
+                'v1.0.0',
+                style: TextStyle(
+                  color: kMuted.withAlpha((0.5 * 255).round()),
+                  fontSize: 12,
+                  letterSpacing: 2,
                 ),
-              ],
+              ),
             ),
           ),
         ],
