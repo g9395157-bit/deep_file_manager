@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../constants/colors.dart';
 import '../constants/mock_data.dart'; // still used for category definitions (label/icon/color)
 import '../models/file_item.dart';
-import '../models/file_type.dart';
 import '../models/storage_category.dart';
 import '../utils/file_service.dart';
 import '../utils/recent_service.dart';
